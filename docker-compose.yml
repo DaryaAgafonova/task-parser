@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: codeforces
+    ports:
+      - "5432:5432"
+    restart: always
+
+  app:
+    build: .
+    command: ["./wait-for-it.sh", "db:5432", "--", "python", "-m", "app.scheduler"]
+    environment:
+      DATABASE_URL: postgresql+psycopg2://user:password@db:5432/codeforces
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    restart: always
+
+  bot:
+    build: .
+    command: ["./wait-for-it.sh", "db:5432", "--", "python", "-m", "app.bot.telegram_bot"]
+    environment:
+      DATABASE_URL: postgresql+psycopg2://user:password@db:5432/codeforces
+      TELEGRAM_TOKEN: "<token>"
+    depends_on:
+      - db
+    restart: always

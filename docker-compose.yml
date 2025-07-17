@@ -1,31 +1,51 @@
+version: '3.9'
+
 services:
   db:
     image: postgres:15
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: codeforces
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrations:
+    build: .
+    command: ["python", "-m", "app.database", "migrate"]
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
 
   app:
     build: .
-    command: ["./wait-for-it.sh", "db:5432", "--", "python", "-m", "app.scheduler"]
-    environment:
-      DATABASE_URL: postgresql+psycopg2://user:password@db:5432/codeforces
+    command: ["python", "-m", "app.scheduler"]
+    env_file:
+      - .env
     depends_on:
-      - db
+      migrations:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     restart: always
 
   bot:
     build: .
-    command: ["./wait-for-it.sh", "db:5432", "--", "python", "-m", "app.bot.telegram_bot"]
-    environment:
-      DATABASE_URL: postgresql+psycopg2://user:password@db:5432/codeforces
-      TELEGRAM_TOKEN: "<token>"
+    command: ["python", "-m", "app.bot.telegram_bot"]
+    env_file:
+      - .env
     depends_on:
-      - db
+      migrations:
+        condition: service_completed_successfully
     restart: always

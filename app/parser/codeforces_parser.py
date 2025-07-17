@@ -5,6 +5,8 @@ from app.models import Problem, Tag
 def fetch_problems():
     url = "https://codeforces.com/api/problemset.problems"
     resp = requests.get(url)
+    if resp.status_code != 200:
+        raise Exception(f"Codeforces API error: {resp.status_code} {resp.text}")
     data = resp.json()["result"]
     problems = data["problems"]
     stats = {f"{p['contestId']}{p['index']}": p for p in data["problemStatistics"]}
